@@ -1,0 +1,8 @@
+---
+version: "3.9"
+services:
+  worker:
+    image: omarkhd/litess:latest
+    entrypoint: ./worker
+    ports:
+      - 33060:3000
