@@ -6,7 +6,8 @@ ARG SRCDIR
 
 WORKDIR ${SRCDIR}
 ADD cmd cmd
-#ADD go.mod go.sum ./
+ADD server server
+ADD go.mod go.sum ./
 
 WORKDIR ${SRCDIR}/cmd/worker
 RUN go build -o worker .

@@ -1,7 +1,18 @@
 package main
 
-import "fmt"
+import (
+	"log"
+	"net/http"
+
+	"omarkhd/litess/server"
+)
+
+const (
+	port = ":3000"
+)
 
 func main() {
-	fmt.Println("Hello world")
+	ws := server.NewWorkerServer()
+	log.Printf("Starting worker on port %s", port)
+	log.Fatal(http.ListenAndServe(port, ws.Mux()))
 }
