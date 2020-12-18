@@ -20,16 +20,17 @@ WHEEL_COMPANIES = ('goodyear', 'bridgestone', 'michelin', 'pirelli')
 logger = settings.get_logger()
 
 
-class WorkerMonkey(locust.HttpUser):
-    wait_time = locust.between(0, 1)
+class WorkerUser(locust.HttpUser):
+    wait_time = locust.between(0, 0.5)
     host = settings.WORKER_URL
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.cfg = settings.Manager.get_instance()
         self.prepare_schema()
+        self.created_cars = list()
 
-    @locust.task(1)
+    @locust.task(6)
     def insert_car(self) -> None:
         if not self.is_enabled():
             return
@@ -54,23 +55,49 @@ class WorkerMonkey(locust.HttpUser):
             'values ("{id}", "{make}", "{model}", {year})'.format(**car)
         r = self.client.post('/exec', json=dict(sql=query), name='insert')
         if r.status_code == 200:
+            self.created_cars.append(car['id'])
             for wheel in wheels:
                 query = 'insert into car_wheel (car_id, wheel_id) ' \
-                    'values ("{0}", "{1}")'.format(car['id'], wheel['id'])
+                    'values ("{}", "{}")'.format(car['id'], wheel['id'])
                 r = self.client.post('/exec', json=dict(sql=query), name='insert')
                 if r.status_code != 200:
                     logger.error('Failed to persist car wheel relationship')
         else:
             logger.error('Failed to persist car %s: %s', car['id'], r.text)
 
-    @locust.task(5)
+    @locust.task(1)
+    def delete_car(self) -> None:
+        if len(self.created_cars) < 1:
+            return
+        pick = random.choice(self.created_cars)
+        # Wheel rows deletion.
+        query = 'delete from wheel where id in (' \
+            'select cw.wheel_id from car_wheel cw ' \
+            'where cw.car_id = "{}")'.format(pick)
+        r = self.client.post('/exec', json=dict(sql=query), name='delete')
+        if r.status_code != 200:
+            logger.error('Failed to delete wheels: %s', r.text)
+        # Relationship rows deletion.
+        query = 'delete from car_wheel where car_id = "{}"'.format(pick)
+        r = self.client.post('/exec', json=dict(sql=query), name='delete')
+        if r.status_code != 200:
+            logger.error('Failed to delete car wheel relationship: %s', r.text)
+        # Car row deletion.
+        query = 'delete from car where id = "{}"'.format(pick)
+        r = self.client.post('/exec', json=dict(sql=query), name='delete')
+        if r.status_code != 200:
+            logger.error('Failed to delete car: %s', r.text)
+        self.created_cars.remove(pick)
+
+    @locust.task(1)
     def query_cars(self) -> None:
         if not self.is_enabled():
             return
 
-        query = 'select * from car_wheel cw ' \
+        query = 'select c.id, count(w.id) from car_wheel cw ' \
             'inner join car c on cw.car_id = c.id ' \
-            'inner join wheel w on cw.wheel_id = w.id'
+            'inner join wheel w on cw.wheel_id = w.id ' \
+            'group by c.id'
         r = self.client.post('/query', json=dict(sql=query), name='query')
         if r.status_code != 200:
             logger.error('Failed to query cars: %s', r.text)
@@ -101,8 +128,8 @@ class WorkerMonkey(locust.HttpUser):
             '  car_id text,'
             '  wheel_id text,'
             '  primary key (car_id, wheel_id),'
-            '  foreign key (car_id) references car (id),'
-            '  foreign key (wheel_id) references wheel (id)'
+            '  foreign key (car_id) references car (id) on delete restrict,'
+            '  foreign key (wheel_id) references wheel (id) on delete restrict'
             ')'
         ]
         for query in queries:
