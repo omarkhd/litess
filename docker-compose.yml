@@ -12,3 +12,11 @@ services:
       - ./__scripts__/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
       - 9090:9090
+  grafana:
+    image: grafana/grafana:7.3.6
+    volumes:
+      - ./__scripts__/grafana/datasources.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - ./__scripts__/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/litess.yml:ro
+      - ./__scripts__/grafana/litess.json:/var/lib/grafana/dashboards/litess.json:ro
+    ports:
+      - 3000:3000
