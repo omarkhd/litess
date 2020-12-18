@@ -36,7 +36,7 @@ class WorkerMonkey(locust.HttpUser):
         super().__init__(*args, **kwargs)
         self.prepare_schema()
 
-    @locust.task
+    @locust.task(1)
     def insert_car(self) -> None:
         wheels = list()
         for _ in range(0, 4):
@@ -61,6 +61,17 @@ class WorkerMonkey(locust.HttpUser):
                     logger.error('Failed to persist car wheel relationship')
         else:
             logger.error('Failed to persist car %s: %s', car['id'], r.text)
+
+    @locust.task(5)
+    def query_cars(self) -> None:
+        query = 'select * from car_wheel cw ' \
+            'inner join car c on cw.car_id = c.id ' \
+            'inner join wheel w on cw.wheel_id = w.id'
+        r = self.client.post('/query', json=dict(sql=query), name='query')
+        if r.status_code != 200:
+            logger.error('Failed to query cars: %s', r.text)
+            return
+        logger.info('Query returned %s cars', r.json().get('rows_affected'))
 
     def prepare_schema(self) -> None:
         queries = [
@@ -90,7 +101,7 @@ class WorkerMonkey(locust.HttpUser):
             logger.info('Executing SQL: %s', query)
             r = self.client.post('/exec', json={'sql': query}, name='schema')
             if r.status_code != 200:
-                logger.info('Failed to execute schema query')
+                logger.info('Failed to execute schema query: %s', r.text)
 
     @staticmethod
     def create_car() -> dict:
