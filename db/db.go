@@ -13,7 +13,7 @@ import (
 
 const (
 	driverName     = "sqlite"
-	dataSourceName = "db.sqlite"
+	dataSourceName = "file::memory:?cache=shared"
 )
 
 var (
