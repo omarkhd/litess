@@ -47,7 +47,7 @@ class WorkerMonkey(locust.HttpUser):
             if r.status_code == 200:
                 wheels.append(wheel)
             else:
-                logger.error('Failed to persist wheel %s', wheel['id'])
+                logger.error('Failed to persist wheel %s: %s', wheel['id'], r.text)
         car = self.create_car()
         query = 'insert into car (id, make, model, year) ' \
             'values ("{id}", "{make}", "{model}", {year})'.format(**car)
@@ -60,7 +60,7 @@ class WorkerMonkey(locust.HttpUser):
                 if r.status_code != 200:
                     logger.error('Failed to persist car wheel relationship')
         else:
-            logger.error('Failed to persist car %s', car['id'])
+            logger.error('Failed to persist car %s: %s', car['id'], r.text)
 
     def prepare_schema(self) -> None:
         queries = [

@@ -6,3 +6,9 @@ services:
     entrypoint: ./worker
     ports:
       - 33060:3000
+  prometheus:
+    image: prom/prometheus:v2.23.0
+    volumes:
+      - ./__scripts__/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - 9090:9090

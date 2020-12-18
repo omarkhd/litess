@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"omarkhd/litess/db"
+	"omarkhd/litess/metrics"
 	"omarkhd/litess/server"
 )
 
@@ -13,6 +14,7 @@ const (
 )
 
 func main() {
+	go metrics.Expose()
 	ng, err := db.New()
 	if err != nil {
 		log.Fatal(err.Error())

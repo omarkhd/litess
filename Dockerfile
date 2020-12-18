@@ -8,6 +8,7 @@ ARG SRCDIR
 WORKDIR ${SRCDIR}
 ADD cmd cmd
 ADD db db
+ADD metrics metrics
 ADD server server
 ADD go.mod go.sum ./
 
