@@ -1,20 +1,9 @@
-import logging
-import os
 import random
 import uuid
 
 import locust
 
-
-WORKER_URL = os.getenv('WORKER_URL')
-if WORKER_URL is None:
-    raise RuntimeError('Undefined WORKER_URL')
-
-
-logging.basicConfig()
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-logger.addHandler(logging.StreamHandler())
+import settings
 
 
 CAR_MODELS = (
@@ -28,16 +17,27 @@ WHEEL_AIR_PRESSURES = tuple(range(25, 40))
 WHEEL_COMPANIES = ('goodyear', 'bridgestone', 'michelin', 'pirelli')
 
 
+logger = settings.get_logger()
+
+
 class WorkerMonkey(locust.HttpUser):
     wait_time = locust.between(0, 1)
-    host = WORKER_URL
+    host = settings.WORKER_URL
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.cfg = settings.Manager.get_instance()
         self.prepare_schema()
 
     @locust.task(1)
     def insert_car(self) -> None:
+        if not self.is_enabled():
+            return
+
+        # Stop inserting if full capacity.
+        if self.is_full():
+            return
+
         wheels = list()
         for _ in range(0, 4):
             wheel = self.create_wheel()
@@ -48,6 +48,7 @@ class WorkerMonkey(locust.HttpUser):
                 wheels.append(wheel)
             else:
                 logger.error('Failed to persist wheel %s: %s', wheel['id'], r.text)
+
         car = self.create_car()
         query = 'insert into car (id, make, model, year) ' \
             'values ("{id}", "{make}", "{model}", {year})'.format(**car)
@@ -64,6 +65,9 @@ class WorkerMonkey(locust.HttpUser):
 
     @locust.task(5)
     def query_cars(self) -> None:
+        if not self.is_enabled():
+            return
+
         query = 'select * from car_wheel cw ' \
             'inner join car c on cw.car_id = c.id ' \
             'inner join wheel w on cw.wheel_id = w.id'
@@ -71,7 +75,11 @@ class WorkerMonkey(locust.HttpUser):
         if r.status_code != 200:
             logger.error('Failed to query cars: %s', r.text)
             return
-        logger.info('Query returned %s cars', r.json().get('rows_affected'))
+
+        # This task also saves count to state.
+        count = r.json().get('rows_affected')
+        self.cfg.state.set('count', count)
+        logger.info('Query returned %s cars', count)
 
     def prepare_schema(self) -> None:
         queries = [
@@ -120,3 +128,17 @@ class WorkerMonkey(locust.HttpUser):
             'air_pressure': random.choice(WHEEL_AIR_PRESSURES),
             'company': random.choice(WHEEL_COMPANIES)
         }
+
+    def is_enabled(self) -> bool:
+        cfg, _ = self.cfg.get()
+        if cfg.get('enabled') is False:
+            return False
+        return True
+
+    def is_full(self) -> bool:
+        cfg, _ = self.cfg.get()
+        count = self.cfg.state.get('count')
+        capacity = cfg.get('capacity')
+        if None in (count, capacity):
+            return False
+        return count >= capacity
