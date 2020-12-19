@@ -188,6 +188,7 @@ class WorkerUser(locust.HttpUser):
     @locust.task(1)
     def select_all_cars(self) -> None:
         self.select_all_and_set_count('car')
+        self.log_counts()
 
     @locust.task(1)
     def select_all_wheels(self) -> None:
@@ -208,7 +209,6 @@ class WorkerUser(locust.HttpUser):
         # This task also keeps track of table counts.
         count = r.json().get('rows_affected')
         self.cfg.state.set('{}_count'.format(table), count)
-        logger.info('TABLE [%s] COUNT: %s', table, count)
 
     def prepare_schema(self) -> None:
         queries = [
@@ -270,3 +270,10 @@ class WorkerUser(locust.HttpUser):
         if None in (count, capacity):
             return False
         return count >= capacity
+
+    def log_counts(self) -> None:
+        logger.info('[car: {car}] [wheel: {wheel}] [car_wheel: {car_wheel}]'.format(**{
+            'car': self.cfg.state.get('car_count'),
+            'wheel': self.cfg.state.get('wheel_count'),
+            'car_wheel': self.cfg.state.get('car_wheel_count')
+        }))
