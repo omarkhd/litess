@@ -18,5 +18,6 @@ services:
       - ./__scripts__/grafana/datasources.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
       - ./__scripts__/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/litess.yml:ro
       - ./__scripts__/grafana/litess.json:/var/lib/grafana/dashboards/litess.json:ro
+      - ./__scripts__/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
     ports:
       - 3000:3000
