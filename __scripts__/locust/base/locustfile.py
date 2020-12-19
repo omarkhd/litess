@@ -211,6 +211,10 @@ class WorkerUser(locust.HttpUser):
         self.cfg.state.set('{}_count'.format(table), count)
 
     def prepare_schema(self) -> None:
+        if self.cfg.state.get('schema_loaded'):
+            logger.info('Schema previously loaded, skipping')
+            return
+
         queries = [
             "create table if not exists car ("
             "    id text primary key,"
@@ -238,6 +242,10 @@ class WorkerUser(locust.HttpUser):
             r = self.client.post('/exec', json={'sql': query}, name='schema')
             if r.status_code != 200:
                 logger.info('Failed to execute schema query: %s', r.text)
+                return
+
+        logger.info('Schema successfully loaded')
+        self.cfg.state.set('schema_loaded', True)
 
     @staticmethod
     def create_car() -> dict:
