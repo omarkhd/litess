@@ -222,14 +222,14 @@ class WorkerUser(locust.HttpUser):
             "    model text,"
             "    year integer"
             ")",
-            "create index if not exists user_idx_car_1 on car (make)",
-            "create index if not exists user_idx_car_2 on car (model)",
+            # "create index if not exists user_idx_car_1 on car (make)",
+            # "create index if not exists user_idx_car_2 on car (model)",
             "create table if not exists wheel ("
             "    id text primary key,"
             "    air_pressure integer,"
             "    company text"
             ")",
-            "create index if not exists user_idx_wheel_1 on wheel(air_pressure)",
+            # "create index if not exists user_idx_wheel_1 on wheel(air_pressure)",
             "create table if not exists car_wheel ("
             "    car_id text,"
             "    wheel_id text,"
